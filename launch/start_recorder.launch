@@ -1,0 +1,14 @@
+
+<launch>
+
+    <arg name="action_type" default="no_action" doc="action going to perform"/>
+    <arg name="source" default="usb_cam" doc="usb_cam or folder_with_images"/>
+
+
+    <node type="record_video.py" name="record_video" pkg="record_images_from_usbcam" output="screen">
+        <param name="action_type" type="string" value="$(arg action_type)" /> 
+        <param name="source" type="string" value="$(arg source)" /> 
+    </node>
+
+
+</launch>

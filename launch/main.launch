@@ -1,0 +1,15 @@
+
+<launch>
+
+    <arg name="type" default="no-action" />
+
+    <node type="usb_cam_node" name="usb_cam" pkg="usb_cam"
+        output="screen" args="_video_device:=/dev/video0 _pixel_format:=yuyv _camera_name:=tracker_camera">
+         <param name="framerate" type="int" value="10" />            
+    </node>
+
+    <node type="record_video.py" name="record_video" pkg="record_images_from_usbcam"
+        output="screen"
+    />
+      
+</launch>
