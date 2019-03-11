@@ -7,57 +7,55 @@ import datetime
 PYTHON_FILE_PATH=os.path.join(os.path.dirname(__file__))+"/"
 
 # -- ROS
-import rospy
-from sensor_msgs.msg import CameraInfo
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
+# import rospy
+# from sensor_msgs.msg import CameraInfo
+# from sensor_msgs.msg import Image
+# from cv_bridge import CvBridge, CvBridgeError
 
 def get_time():
     s=str(datetime.datetime.now())[5:].replace(' ','-').replace(":",'-').replace('.','-')[:-3]
     return s # day, hour, seconds: 02-26-15-51-12-556
-    
 
-class ImageSubscriber(object):
-    def __init__(self, topic_name):
-        self.bridge = CvBridge()
-
-        self.sub = rospy.Subscriber(topic_name, Image, self._call_back)
-
-        self.cnt = 0  # count images
-        self.rosImage=None
-        self.t=None
-        self.is_image_updated=False
-    
-    def _call_back(self, rosImage):
-        self.rosImage =rosImage
-        self.t=rospy.get_time()
-        self.cnt+=1
-        self.is_image_updated=True
-
-    def _get_image(self):
-        self.is_image_updated=False
-        return self.rosImage, self.t
-
-    def isReceiveImage(self):
-        return self.is_image_updated
-
-# Subscribe color image topic
-class ColorImageSubscriber(ImageSubscriber):
-    def __init__(self, topic_name):
-        super(ColorImageSubscriber, self).__init__(topic_name)
-   
-    def get_image(self):
-        rosImage, t = self._get_image()
-        return self.bridge.imgmsg_to_cv2(rosImage, "bgr8"), t
+def int2str(num, blank):
+    return ("{:0"+str(blank)+"d}").format(num)
 
 
+class ProcessEvent(object):
+    def __init__(self, folder_name):
+        self.flag_record = False
+        self.path = PYTHON_FILE_PATH + "../data/"
+        self.folder = None
+        self.cnt_video = 0
+        self.cnt_image = 0 
+        self.folder_name = folder_name
 
-# class ReadImageFromFolder(object):
-#     def __init__(self, folder):
-#         self.folder = folder
-#     def isReceiveImage(self):
-#         # todo 
-#         return True
-#     def get_image(self):
-#         # todo 
-#         return cv2.imread(path)
+    def process_event(self, q, image):
+        
+        if q>=0 and chr(q)=='s' and self.flag_record == False:
+            self.flag_record = True
+            self.cnt_video += 1
+            self.cnt_image = 0
+
+            # self.folder = self.folder_name + "_"  + int2str(self.cnt_video, blank = 2)
+            self.folder = self.folder_name + "_"  + get_time()
+            
+            if not os.path.exists(self.path + self.folder):
+                os.makedirs(self.path + self.folder)
+
+            print("\n\n")
+            print("==============================================\n")
+            print("Start recording video ...\n")
+
+        if q>=0 and chr(q)=='d' and self.flag_record == True:
+            self.flag_record = False
+            print("Stop recording video ...\n")
+            print("==============================================\n")
+            print("\n\n")
+
+        if self.flag_record:
+            self.cnt_image += 1 
+            blank = 5
+            filename = self.path  + "/" +  self.folder + "/" + int2str(self.cnt_image, blank) + ".png"
+            cv2.imwrite(filename, image)
+            print("record image: " + filename + "\n")
+
