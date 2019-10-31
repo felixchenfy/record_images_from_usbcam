@@ -1,49 +1,50 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-# -- Standard
 import numpy as np
 import sys, os
 import cv2
 import datetime
 from my_lib import *
 
-# -- ROS
 import rospy
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
-PYTHON_FILE_PATH=os.path.join(os.path.dirname(__file__))+"/"
+VIDEO_TOPIC = "usb_cam/image_raw"
 
-# ----------------------------------------------------
-
+# A virtual class for subscribing image from ROS topic
 class ImageSubscriber(object):
     def __init__(self, topic_name):
         self.bridge = CvBridge()
 
-        self.sub = rospy.Subscriber(topic_name, Image, self._call_back)
+        self.img_subscriber = rospy.Subscriber(
+            topic_name, Image, self._call_back)
 
         self.cnt = 0  # count images
-        self.rosImage=None
-        self.t=None
-        self.is_image_updated=False
+        self.rosImage = None
+        self.t = None
+        self.is_image_updated = False
     
-    def _call_back(self, rosImage):
-        self.rosImage =rosImage
-        self.t=rospy.get_time()
-        self.cnt+=1
-        self.is_image_updated=True
-
-    def _get_image(self):
-        self.is_image_updated=False
-        return self.rosImage, self.t
-
     def isReceiveImage(self):
         return self.is_image_updated
+    
+    def get_image(self):
+        raise RuntimeError("Please overload this `def get_image`.")
+    
+    def _call_back(self, rosImage):
+        self.rosImage = rosImage
+        self.t = rospy.get_time()
+        self.cnt += 1
+        self.is_image_updated = True
 
-# Subscribe color image topic
+    def _get_image(self):
+        self.is_image_updated = False
+        return self.rosImage, self.t
+
+
+# Subscribe color image from ROS topic
 class ColorImageSubscriber(ImageSubscriber):
     def __init__(self, topic_name):
         super(ColorImageSubscriber, self).__init__(topic_name)
@@ -53,42 +54,30 @@ class ColorImageSubscriber(ImageSubscriber):
         return self.bridge.imgmsg_to_cv2(rosImage, "bgr8"), t
 
 
-# -- Main
 if __name__ == "__main__":
     rospy.init_node("record_usb_cam_video")
     
-    # Choose between usb_cam or folder
-    source = rospy.get_param("~source")
-    if source == "usb_cam":
-        sub = ColorImageSubscriber("usb_cam/image_raw")
-    else:
-        print("Sorry, this mode has been completed. Use usb_cam mode please")
-        # sub = ReadImageFromFolder()
-        # framerate = 10
+    img_subscriber = ColorImageSubscriber(VIDEO_TOPIC)
+    image_recorder = KeyProcessorAndImageRecorder(
+        sub_folder_name=rospy.get_param("~sub_folder_name"),
+        dst_folder="data/",
+        img_suffix="jpg")
 
-    processor = ProcessEvent(folder_name = rospy.get_param("~action_type"))
-
-    # Loop to read images
     while not rospy.is_shutdown():
-        if sub.isReceiveImage():
-            image, t = sub.get_image()
+        rospy.sleep(0.005)
 
-            # Show image
-            cv2.imshow("human_pose_recorder", image)
-            
-            # Process key event
-            key = cv2.waitKey(10) 
-            processor.process_event(key, image)
-            if(key>=0 and chr(key)=='q'):
-                break
-            
-            # sleep
-            if not (source == "usb_cam"):
-                rospy.sleep(1.0/framerate)
+        if not img_subscriber.isReceiveImage():
+            continue
+        
+        image, t = img_subscriber.get_image()
 
-        rospy.sleep(0.0001)
+        cv2.imshow("human_pose_recorder", image)
+        key = cv2.waitKey(5)
+        
+        image_recorder.check_key_and_save_image(key, image)
+        if(key >= 0 and chr(key) == 'q'):
+            break
 
-    # return
     cv2.destroyAllWindows()
     rospy.loginfo("Recorder stops")
 
